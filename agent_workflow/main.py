@@ -4,49 +4,48 @@ from langgraph.prebuilt import ToolNode, tools_condition
 
 from core.logging_helpers import logger
 from agent_workflow.workflow import AgentState, agent, rewrite, generate, grade_documents
+from database.database_manager import create_retriever
 
 
-def compile_graph():
-    logger.info(" - Initializing")
-    workflow = StateGraph(AgentState)
-    # Define the nodes we will cycle between
-    workflow.add_node("agent", agent)  # agent
-    retrieve = ToolNode([retriever_tool])
-    workflow.add_node("retrieve", retrieve)  # retrieval
-    workflow.add_node("rewrite", rewrite)  # Re-writing the question
-    workflow.add_node(
-        "generate", generate
-    )  # Generating a response after we know the documents are relevant
-    # Call agent node to decide to retrieve or not
-    workflow.add_edge(START, "agent")
+logger.info(" - Initializing")
+workflow = StateGraph(AgentState)
+# Define the nodes we will cycle between
+workflow.add_node("agent", agent)  # agent
+retriever_tool = create_retriever()
+retrieve = ToolNode([retriever_tool])
+workflow.add_node("retrieve", retrieve)  # retrieval
+workflow.add_node("rewrite", rewrite)  # Re-writing the question
+workflow.add_node(
+    "generate", generate
+)  # Generating a response after we know the documents are relevant
+# Call agent node to decide to retrieve or not
+workflow.add_edge(START, "agent")
 
-    # Decide whether to retrieve
-    workflow.add_conditional_edges(
-        "agent",
-        # Assess agent decision
-        tools_condition,
-        {
-            # Translate the condition outputs to nodes in our graph
-            "tools": "retrieve",
-            END: END,
-        },
-    )
+# Decide whether to retrieve
+workflow.add_conditional_edges(
+    "agent",
+    # Assess agent decision
+    tools_condition,
+    {
+        # Translate the condition outputs to nodes in our graph
+        "tools": "retrieve",
+        END: END,
+    },
+)
 
-    # Edges taken after the `action` node is called.
-    workflow.add_conditional_edges(
-        "retrieve",
-        # Assess agent decision
-        grade_documents,
-    )
-    workflow.add_edge("generate", END)
-    workflow.add_edge("rewrite", "agent")
+# Edges taken after the `action` node is called.
+workflow.add_conditional_edges(
+    "retrieve",
+    # Assess agent decision
+    grade_documents,
+)
+workflow.add_edge("generate", END)
+workflow.add_edge("rewrite", "agent")
 
-    agent_workflow = workflow.compile()
-
-    return agent_workflow
+agent_workflow = workflow.compile()
 
 
-def process(agent_workflow):
+def process():
     config = {"configurable": {"thread_id": "def234"}}
 
     while True:

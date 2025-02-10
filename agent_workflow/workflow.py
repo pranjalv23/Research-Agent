@@ -9,11 +9,13 @@ from langgraph.graph import add_messages
 from pydantic import BaseModel, Field
 
 from core.logging_helpers import logger
+from database.database_manager import create_retriever
 
 
 class AgentState(TypedDict):
     messages: Annotated[Sequence[BaseMessage], add_messages]
 
+retriever_tool = create_retriever()
 tools = [retriever_tool]
 
 def agent(state):
